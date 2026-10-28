@@ -1,0 +1,9 @@
+{
+  "common": {
+    "appName": "Aurify",
+    "switchLanguage": "Switch language"
+  },
+  "home": {
+    "tagline": "An operations platform for Shopify stores."
+  }
+}

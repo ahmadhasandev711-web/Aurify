@@ -1,0 +1,9 @@
+{
+  "common": {
+    "appName": "Aurify",
+    "switchLanguage": "تغيير اللغة"
+  },
+  "home": {
+    "tagline": "منصة تشغيل متاجر Shopify."
+  }
+}
