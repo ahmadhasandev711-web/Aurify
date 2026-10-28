@@ -11,7 +11,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "worker": "tsx src/worker/index.ts",
+    "worker": "tsx --env-file-if-exists=.env src/worker/index.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",

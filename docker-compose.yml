@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: aurify
       POSTGRES_DB: aurify
     ports:
-      - '54329:5432'  # unusual host port: avoids clashes with native Postgres (5432) and other containers
+      - '${AURIFY_DB_PORT:-54329}:5432'  # host port: set AURIFY_DB_PORT in .env if it clashes
     volumes:
       - aurify-pg:/var/lib/postgresql
     healthcheck:
