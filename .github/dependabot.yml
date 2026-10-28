@@ -1,0 +1,20 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    # Pinned policy: every bump is its own PR. Prisma stays on 7.x until 8 is GA and reviewed;
+    # TypeScript stays on 6.x until typescript-eslint supports 7.
+    ignore:
+      - dependency-name: prisma
+        update-types: ['version-update:semver-major']
+      - dependency-name: '@prisma/*'
+        update-types: ['version-update:semver-major']
+      - dependency-name: typescript
+        update-types: ['version-update:semver-major']
+    open-pull-requests-limit: 10

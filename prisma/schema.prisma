@@ -1,0 +1,778 @@
+// Aurify — Prisma schema (v2.1, section 8).
+// Every operational table has accountId + storeId (D-19). Unique constraints include storeId.
+// Money: Decimal, never float (D-09). Timestamps: timestamptz (UTC).
+// Auth tables (User, Session, AuthAccount, Verification) follow Better Auth's shape and must be
+// re-checked against `npx auth@latest generate` output in step 5.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ───────── Enums
+
+enum Role {
+  OWNER
+  ORDER_MANAGER
+  WAREHOUSE
+  SHIPPING
+  CUSTOMER_SERVICE
+}
+
+enum MembershipStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum AppDistribution {
+  CUSTOM
+  PUBLIC
+}
+
+enum ConnectionStatus {
+  PENDING_INSTALL
+  CONNECTED
+  DISCONNECTED
+}
+
+enum OrderStatus {
+  NEW
+  UNDER_REVIEW
+  CONFIRMED
+  REJECTED
+  PREPARING
+  READY_TO_SHIP
+  CANCELLATION_PENDING
+  CANCELLED
+  SHIPPED
+  DELIVERED
+  DELIVERY_FAILED
+  RETURNED_TO_ORIGIN
+}
+
+enum CodStatus {
+  NOT_COD
+  PENDING
+  SETTLING
+  PAID
+}
+
+enum CallResult {
+  CONFIRMED
+  NO_ANSWER
+  WRONG_NUMBER
+  REFUSED
+  POSTPONED
+}
+
+enum ShipmentStatus {
+  DRAFT
+  SYNCING
+  SYNCED
+  SYNC_FAILED
+}
+
+enum ShipmentSource {
+  PLATFORM
+  EXTERNAL
+}
+
+enum DeliveryResult {
+  DELIVERED
+  FAILED
+}
+
+enum ReturnType {
+  CUSTOMER_RETURN
+  RTO
+}
+
+enum ReturnStatus {
+  OPENED
+  RECEIVED
+  INSPECTED
+  APPROVED
+  CLOSED
+  SYNC_FAILED
+  CANCELLED
+}
+
+enum StockMovementType {
+  ADJUSTMENT
+  COUNT
+  RETURN_RESTOCK
+  CANCEL_RESTOCK
+}
+
+enum StockQuantityName {
+  AVAILABLE
+  ON_HAND
+}
+
+enum MovementStatus {
+  PENDING
+  APPLIED
+  CONFLICT
+  FAILED
+}
+
+enum SyncOperationType {
+  STOCK_MOVEMENT
+  ORDER_CANCEL
+  ORDER_EDIT
+  FULFILLMENT_CREATE
+  MARK_PAID
+  RETURN_CREATE
+  RETURN_PROCESS
+  TAGS_ADD
+}
+
+enum SyncStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+enum OrderEditStatus {
+  PENDING
+  APPLIED
+  FAILED
+}
+
+// ───────── Identity (Better Auth shape)
+
+model User {
+  id              String        @id
+  name            String
+  email           String        @unique
+  emailVerified   Boolean       @default(false)
+  image           String?
+  isPlatformAdmin Boolean       @default(false)
+  createdAt       DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime      @updatedAt @db.Timestamptz(3)
+  sessions        Session[]
+  authAccounts    AuthAccount[]
+  memberships     Membership[]
+
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  userId    String
+  token     String   @unique
+  expiresAt DateTime @db.Timestamptz(3)
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("session")
+}
+
+model AuthAccount {
+  id                    String    @id
+  userId                String
+  providerAccountId     String
+  providerId            String
+  password              String?
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime? @db.Timestamptz(3)
+  refreshTokenExpiresAt DateTime? @db.Timestamptz(3)
+  scope                 String?
+  createdAt             DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime  @updatedAt @db.Timestamptz(3)
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("auth_account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+// ───────── Tenancy
+
+model Account {
+  id                  String   @id @default(cuid())
+  name                String
+  timezone            String   @default("Africa/Cairo")
+  maxDeliveryAttempts Int      @default(3)
+  carriers            Json     @default("[]")
+  createdAt           DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt           DateTime @updatedAt @db.Timestamptz(3)
+
+  memberships Membership[]
+  invitations Invitation[]
+  stores      Store[]
+
+  @@map("tenant_account")
+}
+
+model Membership {
+  id        String           @id @default(cuid())
+  accountId String
+  userId    String
+  role      Role
+  status    MembershipStatus @default(ACTIVE)
+  createdAt DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime         @updatedAt @db.Timestamptz(3)
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([accountId, userId])
+  @@index([userId])
+}
+
+model Invitation {
+  id          String    @id @default(cuid())
+  accountId   String
+  email       String
+  role        Role
+  tokenHash   String    @unique
+  expiresAt   DateTime  @db.Timestamptz(3)
+  usedAt      DateTime? @db.Timestamptz(3)
+  invitedById String
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+
+  account Account @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+}
+
+// ───────── Shopify app + store (D-14)
+
+model ShopifyApp {
+  id              String          @id @default(cuid())
+  clientId        String          @unique
+  clientSecretEnc String
+  distribution    AppDistribution @default(CUSTOM)
+  configSlug      String          @unique
+  scopes          String
+  apiVersion      String          @default("2026-10")
+  createdAt       DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime        @updatedAt @db.Timestamptz(3)
+
+  stores Store[]
+
+  @@map("shopify_app")
+}
+
+model Store {
+  id              String           @id @default(cuid())
+  accountId       String
+  shopifyAppId    String
+  shopDomain      String           @unique
+  status          ConnectionStatus @default(PENDING_INSTALL)
+  // StoreConnection folded into Store: token is per-store, encrypted.
+  accessTokenEnc  String?
+  refreshTokenEnc String?
+  tokenExpiresAt  DateTime?        @db.Timestamptz(3)
+  scopesGranted   String?
+  installedAt     DateTime?        @db.Timestamptz(3)
+  uninstalledAt   DateTime?        @db.Timestamptz(3)
+  createdAt       DateTime         @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime         @updatedAt @db.Timestamptz(3)
+
+  account    Account    @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  shopifyApp ShopifyApp @relation(fields: [shopifyAppId], references: [id])
+
+  locations           Location[]
+  products            Product[]
+  variants            Variant[]
+  inventoryItems      InventoryItem[]
+  inventoryLevels     InventoryLevel[]
+  stockMovements      StockMovement[]
+  orders              Order[]
+  orderLines          OrderLine[]
+  orderCustomers      OrderCustomer[]
+  callAttempts        CallAttempt[]
+  orderEditRequests   OrderEditRequest[]
+  fulfillmentRefs     FulfillmentOrderRef[]
+  shipments           Shipment[]
+  deliveryAttempts    DeliveryAttempt[]
+  returnCases         ReturnCase[]
+  returnItems         ReturnItem[]
+  codSettlements      CodSettlement[]
+  codSettlementOrders CodSettlementOrder[]
+  syncOperations      SyncOperation[]
+  webhookEvents       WebhookEvent[]
+  auditLogs           AuditLog[]
+
+  @@index([accountId])
+}
+
+// ───────── Catalog + inventory (D-02, D-03)
+
+model Location {
+  id                   String   @id @default(cuid())
+  accountId            String
+  storeId              String
+  shopifyLocationId    String
+  name                 String
+  fulfillsOnlineOrders Boolean  @default(true)
+  isMerchantManaged    Boolean  @default(true)
+  isActive             Boolean  @default(true)
+  createdAt            DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime @updatedAt @db.Timestamptz(3)
+
+  store  Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  levels InventoryLevel[]
+
+  @@unique([storeId, shopifyLocationId])
+  @@index([accountId])
+}
+
+model Product {
+  id               String   @id @default(cuid())
+  accountId        String
+  storeId          String
+  shopifyProductId String
+  title            String
+  status           String?
+  createdAt        DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime @updatedAt @db.Timestamptz(3)
+
+  store    Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  variants Variant[]
+
+  @@unique([storeId, shopifyProductId])
+  @@index([accountId])
+}
+
+model Variant {
+  id               String   @id @default(cuid())
+  accountId        String
+  storeId          String
+  productId        String
+  shopifyVariantId String
+  sku              String?
+  title            String
+  options          Json     @default("[]")
+  createdAt        DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime @updatedAt @db.Timestamptz(3)
+
+  store         Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  product       Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem?
+  orderLines    OrderLine[]
+
+  @@unique([storeId, shopifyVariantId])
+  @@index([accountId])
+  @@index([productId])
+}
+
+model InventoryItem {
+  id                     String   @id @default(cuid())
+  accountId              String
+  storeId                String
+  variantId              String   @unique
+  shopifyInventoryItemId String
+  tracked                Boolean  @default(true)
+  createdAt              DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt              DateTime @updatedAt @db.Timestamptz(3)
+
+  store     Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  variant   Variant          @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  levels    InventoryLevel[]
+  movements StockMovement[]
+
+  @@unique([storeId, shopifyInventoryItemId])
+  @@index([accountId])
+}
+
+model InventoryLevel {
+  id              String   @id @default(cuid())
+  accountId       String
+  storeId         String
+  inventoryItemId String
+  locationId      String
+  available       Int      @default(0)
+  onHand          Int      @default(0)
+  committed       Int      @default(0)
+  syncedAt        DateTime @default(now()) @db.Timestamptz(3)
+  createdAt       DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @db.Timestamptz(3)
+
+  store         Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  location      Location      @relation(fields: [locationId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, inventoryItemId, locationId])
+  @@index([accountId])
+}
+
+model StockMovement {
+  id               String            @id @default(cuid())
+  accountId        String
+  storeId          String
+  inventoryItemId  String
+  locationId       String
+  type             StockMovementType
+  quantityName     StockQuantityName
+  delta            Int?
+  targetQuantity   Int?
+  expectedFrom     Int?
+  actualOnConflict Int?
+  reason           String
+  status           MovementStatus    @default(PENDING)
+  idempotencyKey   String            @unique
+  sourceType       String?
+  sourceId         String?
+  returnItemId     String?           @unique
+  createdById      String?
+  createdAt        DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime          @updatedAt @db.Timestamptz(3)
+
+  store         Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id])
+  returnItem    ReturnItem?   @relation(fields: [returnItemId], references: [id])
+
+  @@index([accountId])
+  @@index([storeId, inventoryItemId])
+}
+
+// ───────── Orders
+
+model Order {
+  id                       String      @id @default(cuid())
+  accountId                String
+  storeId                  String
+  shopifyOrderId           String
+  name                     String
+  status                   OrderStatus @default(NEW)
+  paymentStatus            String?
+  displayFulfillmentStatus String?
+  codStatus                CodStatus   @default(NOT_COD)
+  subtotal                 Decimal     @db.Decimal(14, 2)
+  total                    Decimal     @db.Decimal(14, 2)
+  currency                 String
+  assigneeId               String?
+  // flags: needsDecision, editedAfterPreparing, managedExternally, syncing
+  needsDecision            Boolean     @default(false)
+  editedAfterPreparing     Boolean     @default(false)
+  managedExternally        Boolean     @default(false)
+  syncLock                 Boolean     @default(false)
+  nextCallAt               DateTime?   @db.Timestamptz(3)
+  cancelReason             String?
+  shopifyCreatedAt         DateTime    @db.Timestamptz(3)
+  createdAt                DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt                DateTime    @updatedAt @db.Timestamptz(3)
+
+  store            Store                @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  lines            OrderLine[]
+  customer         OrderCustomer?
+  callAttempts     CallAttempt[]
+  editRequests     OrderEditRequest[]
+  fulfillmentRef   FulfillmentOrderRef?
+  shipment         Shipment?
+  deliveryAttempts DeliveryAttempt[]
+  returnCases      ReturnCase[]
+  codSettlement    CodSettlementOrder?
+
+  @@unique([storeId, shopifyOrderId])
+  @@index([accountId])
+  @@index([storeId, status])
+}
+
+model OrderLine {
+  id                String   @id @default(cuid())
+  accountId         String
+  storeId           String
+  orderId           String
+  variantId         String?
+  shopifyLineItemId String
+  title             String
+  sku               String?
+  quantity          Int
+  price             Decimal  @db.Decimal(14, 2)
+  prepared          Boolean  @default(false)
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @db.Timestamptz(3)
+
+  store   Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  variant Variant? @relation(fields: [variantId], references: [id])
+
+  @@unique([storeId, shopifyLineItemId])
+  @@index([accountId])
+  @@index([orderId])
+}
+
+// Wiped on customers/redact (D-11).
+model OrderCustomer {
+  id                String   @id @default(cuid())
+  accountId         String
+  storeId           String
+  orderId           String   @unique
+  shopifyCustomerId String?
+  name              String?
+  phone             String?
+  email             String?
+  shippingAddress   Json?
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @db.Timestamptz(3)
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([storeId, shopifyCustomerId])
+}
+
+model CallAttempt {
+  id             String     @id @default(cuid())
+  accountId      String
+  storeId        String
+  orderId        String
+  result         CallResult
+  note           String?
+  nextCallAt     DateTime?  @db.Timestamptz(3)
+  byMembershipId String
+  createdAt      DateTime   @default(now()) @db.Timestamptz(3)
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([orderId])
+}
+
+model OrderEditRequest {
+  id                       String          @id @default(cuid())
+  accountId                String
+  storeId                  String
+  orderId                  String
+  changes                  Json
+  status                   OrderEditStatus @default(PENDING)
+  requestedById            String
+  shopifyCalculatedOrderId String?
+  lastError                String?
+  createdAt                DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt                DateTime        @updatedAt @db.Timestamptz(3)
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([orderId])
+}
+
+// ───────── Fulfillment + delivery (D-18)
+
+model FulfillmentOrderRef {
+  id                        String   @id @default(cuid())
+  accountId                 String
+  storeId                   String
+  orderId                   String   @unique
+  shopifyFulfillmentOrderId String
+  locationId                String?
+  status                    String
+  createdAt                 DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt                 DateTime @updatedAt @db.Timestamptz(3)
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, shopifyFulfillmentOrderId])
+  @@index([accountId])
+}
+
+model Shipment {
+  id                   String         @id @default(cuid())
+  accountId            String
+  storeId              String
+  orderId              String         @unique
+  carrier              String
+  trackingNumber       String
+  trackingUrl          String?
+  status               ShipmentStatus @default(DRAFT)
+  source               ShipmentSource @default(PLATFORM)
+  shopifyFulfillmentId String?
+  createdAt            DateTime       @default(now()) @db.Timestamptz(3)
+  updatedAt            DateTime       @updatedAt @db.Timestamptz(3)
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+}
+
+model DeliveryAttempt {
+  id           String         @id @default(cuid())
+  accountId    String
+  storeId      String
+  orderId      String
+  attemptNo    Int
+  result       DeliveryResult
+  reason       String?
+  recordedById String
+  recordedAt   DateTime       @default(now()) @db.Timestamptz(3)
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, attemptNo])
+  @@index([accountId])
+}
+
+// ───────── Returns + RTO (D-06)
+
+model ReturnCase {
+  id                String       @id @default(cuid())
+  accountId         String
+  storeId           String
+  orderId           String
+  type              ReturnType
+  status            ReturnStatus @default(OPENED)
+  shopifyReturnId   String?
+  restockLocationId String?
+  syncStep          String?
+  cancelReason      String?
+  openedById        String?
+  createdAt         DateTime     @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime     @updatedAt @db.Timestamptz(3)
+
+  store Store        @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  order Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  items ReturnItem[]
+
+  @@index([accountId])
+  @@index([orderId])
+}
+
+model ReturnItem {
+  id                    String   @id @default(cuid())
+  accountId             String
+  storeId               String
+  returnCaseId          String
+  orderLineId           String
+  fulfillmentLineItemId String?
+  quantity              Int
+  restockQty            Int      @default(0)
+  damagedQty            Int      @default(0)
+  pendingQty            Int
+  createdAt             DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime @updatedAt @db.Timestamptz(3)
+
+  store      Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  returnCase ReturnCase     @relation(fields: [returnCaseId], references: [id], onDelete: Cascade)
+  movement   StockMovement?
+
+  @@index([accountId])
+  @@index([returnCaseId])
+}
+
+// ───────── COD settlement (D-05)
+
+model CodSettlement {
+  id             String   @id @default(cuid())
+  accountId      String
+  storeId        String
+  carrier        String
+  reference      String
+  expectedAmount Decimal  @db.Decimal(14, 2)
+  receivedAmount Decimal  @db.Decimal(14, 2)
+  note           String?
+  settledOn      DateTime @db.Timestamptz(3)
+  createdById    String
+  createdAt      DateTime @default(now()) @db.Timestamptz(3)
+
+  store  Store                @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  orders CodSettlementOrder[]
+
+  @@index([accountId])
+}
+
+model CodSettlementOrder {
+  id           String @id @default(cuid())
+  accountId    String
+  storeId      String
+  settlementId String
+  orderId      String @unique
+
+  store      Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  settlement CodSettlement @relation(fields: [settlementId], references: [id], onDelete: Cascade)
+  order      Order         @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+}
+
+// ───────── Sync, webhooks, audit
+
+model SyncOperation {
+  id             String            @id @default(cuid())
+  accountId      String
+  storeId        String
+  type           SyncOperationType
+  entityType     String
+  entityId       String
+  payload        Json
+  status         SyncStatus        @default(PENDING)
+  attempts       Int               @default(0)
+  lastError      String?
+  idempotencyKey String            @unique
+  step           String?
+  createdAt      DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime          @updatedAt @db.Timestamptz(3)
+  completedAt    DateTime?         @db.Timestamptz(3)
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([storeId, status])
+  @@index([entityType, entityId])
+}
+
+model WebhookEvent {
+  id          String    @id @default(cuid())
+  accountId   String
+  storeId     String
+  topic       String
+  webhookId   String
+  payload     Json
+  receivedAt  DateTime  @default(now()) @db.Timestamptz(3)
+  processedAt DateTime? @db.Timestamptz(3)
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, webhookId])
+  @@index([accountId])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  accountId  String
+  storeId    String?
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String
+  before     Json?
+  after      Json?
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  store Store? @relation(fields: [storeId], references: [id], onDelete: SetNull)
+
+  @@index([accountId, createdAt])
+  @@index([entityType, entityId])
+}
