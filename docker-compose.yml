@@ -5,18 +5,18 @@ services:
     image: postgres:18.6
     restart: unless-stopped
     environment:
-      POSTGRES_USER: aurify
-      POSTGRES_PASSWORD: aurify
-      POSTGRES_DB: aurify
+      POSTGRES_USER: anoofy
+      POSTGRES_PASSWORD: anoofy
+      POSTGRES_DB: anoofy
     ports:
-      - '${AURIFY_DB_PORT:-54329}:5432'  # host port: set AURIFY_DB_PORT in .env if it clashes
+      - '${ANOOFY_DB_PORT:-54329}:5432'  # host port: set ANOOFY_DB_PORT in .env if it clashes
     volumes:
-      - aurify-pg:/var/lib/postgresql
+      - anoofy-pg:/var/lib/postgresql
     healthcheck:
-      test: ['CMD-SHELL', 'pg_isready -U aurify -d aurify']
+      test: ['CMD-SHELL', 'pg_isready -U anoofy -d anoofy']
       interval: 5s
       timeout: 3s
       retries: 10
 
 volumes:
-  aurify-pg:
+  anoofy-pg:

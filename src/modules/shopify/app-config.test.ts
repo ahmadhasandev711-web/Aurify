@@ -8,7 +8,7 @@ import {
   renderAppConfig,
 } from './app-config';
 
-const input = { slug: 'masastoreel', clientId: 'abc123', name: 'Aurify · masastoreel', appUrl: 'https://aurify.example.com' };
+const input = { slug: 'masastoreel', clientId: 'abc123', name: 'Anoofy · masastoreel', appUrl: 'https://anoofy.example.com' };
 
 describe('renderAppConfig', () => {
   const toml = renderAppConfig(input);
@@ -18,7 +18,7 @@ describe('renderAppConfig', () => {
     expect(toml).toContain('api_version = "2026-10"');
     expect(toml).toContain('embedded = false');
     expect(toml).toContain('client_id = "abc123"');
-    expect(toml).toContain('application_url = "https://aurify.example.com/"');
+    expect(toml).toContain('application_url = "https://anoofy.example.com/"');
   });
 
   it('requests exactly the scopes from the architecture doc', () => {
@@ -38,7 +38,7 @@ describe('renderAppConfig', () => {
 
   it('points the webhook and OAuth callback at this app', () => {
     expect(toml).toContain('uri = "/api/webhooks/shopify"');
-    expect(toml).toContain('redirect_urls = [ "https://aurify.example.com/api/shopify/callback" ]');
+    expect(toml).toContain('redirect_urls = [ "https://anoofy.example.com/api/shopify/callback" ]');
   });
 
   it('escapes quotes in the name', () => {
@@ -52,9 +52,9 @@ describe('input validation', () => {
     [{ slug: 'a' }, 'slug'],
     [{ clientId: ' ' }, 'clientId'],
     [{ name: '' }, 'name'],
-    [{ appUrl: 'http://aurify.example.com' }, 'https'],
+    [{ appUrl: 'http://anoofy.example.com' }, 'https'],
     [{ appUrl: 'not a url' }, 'valid URL'],
-    [{ appUrl: 'https://aurify.example.com/app' }, 'path'],
+    [{ appUrl: 'https://anoofy.example.com/app' }, 'path'],
   ])('rejects %j', (over, msg) => {
     expect(() => renderAppConfig({ ...input, ...over })).toThrow(AppConfigError);
     expect(() => renderAppConfig({ ...input, ...over })).toThrow(msg);

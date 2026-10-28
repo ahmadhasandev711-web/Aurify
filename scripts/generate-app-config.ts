@@ -1,5 +1,5 @@
 // Usage:
-//   pnpm app-config --slug masastoreel --client-id <id> --name "Aurify · masastoreel" --url https://aurify.example.com
+//   pnpm app-config --slug masastoreel --client-id <id> --name "Anoofy · masastoreel" --url https://anoofy.example.com
 // Writes shopify/apps/shopify.app.<slug>.toml. Then: shopify app deploy --config <slug>
 
 import { mkdirSync, writeFileSync } from 'node:fs';

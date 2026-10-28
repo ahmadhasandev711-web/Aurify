@@ -37,10 +37,10 @@ function createClient() {
 }
 
 type Db = ReturnType<typeof createClient>;
-const globalForDb = globalThis as unknown as { __aurifyDb?: Db };
+const globalForDb = globalThis as unknown as { __anoofyDb?: Db };
 
 // Created on first use, so `next build` (which imports route modules) does not need DATABASE_URL.
-const getDb = (): Db => (globalForDb.__aurifyDb ??= createClient());
+const getDb = (): Db => (globalForDb.__anoofyDb ??= createClient());
 export const db: Db = new Proxy({} as Db, {
   get: (_target, prop) => Reflect.get(getDb() as object, prop),
 });

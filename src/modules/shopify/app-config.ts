@@ -46,7 +46,7 @@ export interface AppConfigInput {
   slug: string;
   clientId: string;
   name: string;
-  /** Public https URL of the Aurify web app, no trailing path. */
+  /** Public https URL of the Anoofy web app, no trailing path. */
   appUrl: string;
 }
 

@@ -1,8 +1,8 @@
-# Aurify
+# Anoofy
 
 Shopify-integrated order / inventory / fulfillment / returns operations platform.
 Architecture reference: `docs/` (v2.1). Shopify is the source of truth for what it owns
-(quantities, payment, fulfillment); Aurify owns internal operations (calls, assignment,
+(quantities, payment, fulfillment); Anoofy owns internal operations (calls, assignment,
 preparation, inspection, COD settlement).
 
 ## Requirements

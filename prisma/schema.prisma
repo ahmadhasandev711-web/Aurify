@@ -1,4 +1,4 @@
-// Aurify — Prisma schema (v2.1, section 8).
+// Anoofy — Prisma schema (v2.1, section 8).
 // Every operational table has accountId + storeId (D-19). Unique constraints include storeId.
 // Money: Decimal, never float (D-09). Timestamps: timestamptz (UTC).
 // Auth tables (User, Session, AuthAccount, Verification) follow Better Auth's shape and must be

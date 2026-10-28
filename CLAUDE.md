@@ -1,4 +1,4 @@
-# Aurify — working rules
+# Anoofy — working rules
 
 Shopify-integrated operations platform (orders, inventory, fulfillment, returns, COD) for the Egyptian
 market. One Shopify Custom App per client store. Source of truth for design: `docs/architecture-v2.1.docx`
@@ -18,7 +18,7 @@ Line endings are LF (`.gitattributes`); do not commit whole-file CRLF rewrites.
 
 ## Commands
 - `pnpm install` · `pnpm dev` · `pnpm worker` (separate process) · `pnpm test` · `pnpm typecheck` · `pnpm lint` · `pnpm build`
-- DB: `docker compose up -d db` (host port from `AURIFY_DB_PORT` in `.env`), `pnpm db:migrate --name <x>`
+- DB: `docker compose up -d db` (host port from `ANOOFY_DB_PORT` in `.env`), `pnpm db:migrate --name <x>`
 - Before every commit: `pnpm db:validate && pnpm typecheck && pnpm lint && pnpm test && pnpm build` must pass.
 - Commit migrations (`prisma/migrations`). Never commit `.env`.
 

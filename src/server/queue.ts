@@ -4,10 +4,10 @@
 import { PgBoss } from 'pg-boss';
 import { logger } from './logger';
 
-const g = globalThis as unknown as { __aurifyBoss?: Promise<PgBoss> };
+const g = globalThis as unknown as { __anoofyBoss?: Promise<PgBoss> };
 
 export function getQueue(): Promise<PgBoss> {
-  g.__aurifyBoss ??= (async () => {
+  g.__anoofyBoss ??= (async () => {
     const connectionString = process.env.DATABASE_URL;
     if (!connectionString) throw new Error('DATABASE_URL is not set');
     const boss = new PgBoss({ connectionString, supervise: false, schedule: false, migrate: false });
@@ -15,8 +15,8 @@ export function getQueue(): Promise<PgBoss> {
     await boss.start();
     return boss;
   })().catch((err) => {
-    g.__aurifyBoss = undefined; // allow a retry on the next request
+    g.__anoofyBoss = undefined; // allow a retry on the next request
     throw err;
   });
-  return g.__aurifyBoss;
+  return g.__anoofyBoss;
 }
