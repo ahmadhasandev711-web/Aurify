@@ -44,18 +44,20 @@ describe('scopeArgs', () => {
 });
 
 describe('tenant context', () => {
-  it('throws outside a context, works inside', () => {
+  it('throws outside a context, works inside', async () => {
     expect(() => requireAccountId()).toThrow(TenantContextMissingError);
-    expect(runWithTenant('a1', () => requireAccountId())).toBe('a1');
+    await expect(runWithTenant('a1', () => requireAccountId())).resolves.toBe('a1');
   });
 
-  it('rejects an empty accountId', () => {
-    expect(() => runWithTenant('', () => 1)).toThrow(TenantContextMissingError);
+  it('rejects an empty accountId', async () => {
+    await expect(runWithTenant('', () => 1)).rejects.toBeInstanceOf(TenantContextMissingError);
   });
 
-  it('system context needs a reason and is visible to the db layer', () => {
-    expect(() => withSystemContext(' ', () => 1)).toThrow(TenantContextMissingError);
-    expect(withSystemContext('retention cleanup', () => getTenantStore()?.systemReason)).toBe('retention cleanup');
+  it('system context needs a reason and is visible to the db layer', async () => {
+    await expect(withSystemContext(' ', () => 1)).rejects.toBeInstanceOf(TenantContextMissingError);
+    await expect(withSystemContext('retention cleanup', () => getTenantStore()?.systemReason)).resolves.toBe(
+      'retention cleanup',
+    );
   });
 
   it('survives async boundaries', async () => {
@@ -64,6 +66,20 @@ describe('tenant context', () => {
       return requireAccountId();
     });
     expect(id).toBe('a9');
+  });
+
+  // Regression: Prisma queries are lazy thenables that only run on .then(). Returning one straight out of
+  // the callback used to execute it after the scope had ended (TenantContextMissingError on every login).
+  it('runs a lazy thenable inside the scope, not after it', async () => {
+    // Like a PrismaPromise: does nothing until someone calls .then().
+    const lazy = <T,>(get: () => T): PromiseLike<T> => ({
+      then: (onFulfilled) => {
+        const value = get();
+        return Promise.resolve(onFulfilled ? onFulfilled(value) : value) as never;
+      },
+    });
+    await expect(runWithTenant('a5', () => lazy(() => requireAccountId()))).resolves.toBe('a5');
+    await expect(withSystemContext('why', () => lazy(() => getTenantStore()?.systemReason))).resolves.toBe('why');
   });
 });
 

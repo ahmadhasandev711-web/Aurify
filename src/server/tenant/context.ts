@@ -22,15 +22,18 @@ export function getTenantStore(): TenantStore | undefined {
   return storage.getStore();
 }
 
-export function runWithTenant<T>(accountId: string, fn: () => T): T {
+// Prisma queries are lazy: they only execute on `.then()`. If a helper returned the un-awaited query,
+// it would run AFTER the AsyncLocalStorage scope ended and throw TenantContextMissingError. So both
+// helpers are async and await `fn()` inside the scope, which makes the mistake impossible at call sites.
+export async function runWithTenant<T>(accountId: string, fn: () => T | PromiseLike<T>): Promise<T> {
   if (!accountId) throw new TenantContextMissingError('empty accountId');
-  return storage.run({ accountId }, fn);
+  return storage.run({ accountId }, async () => await fn());
 }
 
 /** Platform Admin and scheduled cleanup jobs only. Every use must carry a reason. */
-export function withSystemContext<T>(reason: string, fn: () => T): T {
+export async function withSystemContext<T>(reason: string, fn: () => T | PromiseLike<T>): Promise<T> {
   if (!reason.trim()) throw new TenantContextMissingError('system context needs a reason');
-  return storage.run({ systemReason: reason }, fn);
+  return storage.run({ systemReason: reason }, async () => await fn());
 }
 
 export function requireAccountId(): string {

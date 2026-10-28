@@ -12,6 +12,9 @@ market. One Shopify Custom App per client store. Source of truth for design: `do
 Node 26 · pnpm 12.15.0 · TypeScript 6 · Next 16 · React 19 · Prisma 7.10.1 (+adapter-pg; NOT 8 RC) ·
 PostgreSQL 18 · pg-boss 12 · Better Auth 1.7.x · Zod 4 · next-intl 4 · Vitest 5 · Shopify Admin API 2026-10.
 Verify a version on the registry before adding or bumping a dependency. `.npmrc` has save-exact.
+"Latest" means the latest version that passes pnpm's supply-chain policy (release-age check). Never add
+`minimumReleaseAgeExclude`; pick the newest version old enough instead.
+Line endings are LF (`.gitattributes`); do not commit whole-file CRLF rewrites.
 
 ## Commands
 - `pnpm install` · `pnpm dev` · `pnpm worker` (separate process) · `pnpm test` · `pnpm typecheck` · `pnpm lint` · `pnpm build`
@@ -33,6 +36,8 @@ Verify a version on the registry before adding or bumping a dependency. `.npmrc`
   (pino redaction is configured).
 - Prisma 7: URL lives in `prisma.config.ts` (which loads `.env`); client is generated to `src/generated/prisma`
   and imported only via `src/server/db`.
+- Prisma queries are lazy thenables. `runWithTenant` / `withSystemContext` are async and await the callback inside the
+  scope; still write `async () => await db...` in callbacks so the query provably runs inside the context.
 - `db` and `auth` are lazy on purpose so `next build` works without `DATABASE_URL`. Keep it that way.
 
 ## UI rules
