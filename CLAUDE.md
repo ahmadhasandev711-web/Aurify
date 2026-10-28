@@ -42,5 +42,5 @@ Verify a version on the registry before adding or bumping a dependency. `.npmrc`
 - Locale is a cookie (`NEXT_LOCALE`), not a URL prefix.
 
 ## Roles (D-07)
-Owner, Order Manager, Customer Service, Warehouse, Delivery Coordinator (see `src/modules/identity/permissions.ts`).
+OWNER, ORDER_MANAGER, WAREHOUSE, SHIPPING, CUSTOMER_SERVICE (see `src/modules/identity/permissions.ts`).
 Add a permission there first, with a test, then use `authorize`/`withMember` in the action.
