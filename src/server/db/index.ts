@@ -3,6 +3,9 @@
 
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../../generated/prisma/client';
+
+// Re-exported so the rest of the app never imports generated code directly (ESLint enforces it).
+export { Prisma } from '../../generated/prisma/client';
 import { getTenantStore, TenantContextMissingError } from '../tenant/context';
 import { scopeArgs, TENANT_MODELS } from '../tenant/scope';
 import { logger } from '../logger';
@@ -36,4 +39,8 @@ function createClient() {
 type Db = ReturnType<typeof createClient>;
 const globalForDb = globalThis as unknown as { __aurifyDb?: Db };
 
-export const db: Db = (globalForDb.__aurifyDb ??= createClient());
+// Created on first use, so `next build` (which imports route modules) does not need DATABASE_URL.
+const getDb = (): Db => (globalForDb.__aurifyDb ??= createClient());
+export const db: Db = new Proxy({} as Db, {
+  get: (_target, prop) => Reflect.get(getDb() as object, prop),
+});

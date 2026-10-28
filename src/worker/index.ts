@@ -5,30 +5,7 @@
 import { PgBoss } from 'pg-boss';
 import { logger } from '../server/logger';
 import { runWithTenant } from '../server/tenant/context';
-
-export const QUEUES = {
-  webhook: 'shopify.webhook',
-  sync: 'shopify.sync',
-  reconcile: 'shopify.reconcile',
-  retention: 'maintenance.retention',
-} as const;
-
-export interface JobPayload {
-  accountId: string;
-  storeId: string;
-}
-
-export function assertTenantPayload(data: unknown): asserts data is JobPayload {
-  const d = data as Partial<JobPayload> | null;
-  if (!d || typeof d.accountId !== 'string' || !d.accountId || typeof d.storeId !== 'string' || !d.storeId) {
-    throw new Error('Job rejected: payload must include accountId and storeId');
-  }
-}
-
-/** Group id used to serialize jobs on the same entity (D-12). */
-export const entityGroup = (storeId: string, entityType: string, entityId: string) => ({
-  id: `${storeId}:${entityType}:${entityId}`,
-});
+import { QUEUES, assertTenantPayload, type JobPayload } from '../server/queues';
 
 async function main() {
   const connectionString = process.env.DATABASE_URL;
