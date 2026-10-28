@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: aurify
       POSTGRES_DB: aurify
     ports:
-      - '5432:5432'
+      - '5433:5432'  # 5433 on the host: avoids clashing with a native PostgreSQL on 5432
     volumes:
       - aurify-pg:/var/lib/postgresql
     healthcheck:

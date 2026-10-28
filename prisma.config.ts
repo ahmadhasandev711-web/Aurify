@@ -5,6 +5,6 @@ export default defineConfig({
   schema: 'prisma/schema.prisma',
   migrations: { path: 'prisma/migrations' },
   datasource: {
-    url: process.env.DATABASE_URL ?? 'postgresql://aurify:aurify@localhost:5432/aurify',
+    url: process.env.DATABASE_URL ?? 'postgresql://aurify:aurify@localhost:5433/aurify',
   },
 });
